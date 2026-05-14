@@ -1,6 +1,6 @@
 {
   "name": "@fiorelorenzo/ibkr-mcp",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "MCP server for Interactive Brokers — account, options chains, analytics (BS/Greeks/IV/PMCC), market context.",
   "license": "MIT",
   "repository": {
