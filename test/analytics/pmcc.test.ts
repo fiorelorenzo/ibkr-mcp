@@ -14,7 +14,7 @@ describe("pmccEvaluator", () => {
     expect(result.pnlPerShare).toBeCloseTo(3.5, 4);
     expect(result.breakevenAtLongExpiry).toBeCloseTo(133, 4); // 100 + 33
     expect(result.combinedGreeks.delta).toBeDefined();
-    expect(result.costBasisViolation).toBe(false);
+    expect(result.costBasisViolation).toBe(true); // 130 <= 100 + 35
   });
   it("flags cost-basis violation when short strike <= long strike + entry debit", () => {
     const result = pmccEvaluator({
