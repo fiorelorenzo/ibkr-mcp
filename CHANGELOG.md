@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3 — 2026-05-14
+
+### Fixed
+- `get_market_data` now falls back to Yahoo (delayed) when IBKR throws a subscription/market-data error for STK or IND contracts, not just when it returns NaN. Previously errors propagated and skipped the fallback.
+- VIX and other CBOE indices are mapped to their Yahoo symbols (`^VIX`, `^GSPC`, `^NDX`, `^DJI`, `^RUT`) for fallback.
+
+### Changed
+- `get_market_data` never throws on missing data. Returns a structured response with `source: "ibkr" | "yahoo-delayed" | "unavailable"` and an optional `error` field. Callers should branch on `source`.
+
 ## 0.1.2 — 2026-05-13
 
 ### Fixed

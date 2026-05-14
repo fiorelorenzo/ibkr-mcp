@@ -51,10 +51,17 @@ export interface MarketDataSnapshot {
   vega?: number;
   iv?: number;
   undPrice?: number;
-  /** Where the bid/ask/last came from. `"ibkr"` is the default broker feed; `"yahoo-delayed"` is the post-market fallback for stocks. */
-  source?: "ibkr" | "yahoo-delayed";
+  /**
+   * Where the bid/ask/last came from.
+   * - `"ibkr"`: live broker feed.
+   * - `"yahoo-delayed"`: post-market / no-subscription fallback for stocks and indices.
+   * - `"unavailable"`: no data from either source (e.g. illiquid name without Yahoo quote, or option with no broker subscription).
+   */
+  source?: "ibkr" | "yahoo-delayed" | "unavailable";
   /** True when the snapshot is from a delayed source (e.g. Yahoo when IBKR is closed). */
   delayed?: boolean;
+  /** When `source === "unavailable"`, the underlying broker error message (if any). */
+  error?: string;
 }
 
 export interface HistoricalBar {

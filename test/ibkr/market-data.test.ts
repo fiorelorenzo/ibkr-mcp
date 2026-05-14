@@ -105,7 +105,7 @@ describe("getMarketData", () => {
     expect(md.last).toBe(195.5);
   });
 
-  it("does NOT fall back to Yahoo for option contracts even when IBKR is empty", async () => {
+  it("does NOT fall back to Yahoo for option contracts even when IBKR is empty (returns 'unavailable')", async () => {
     const client = mkClient(async () => ({}));
     const md = await getMarketData(client, {
       symbol: "AAPL",
@@ -115,22 +115,76 @@ describe("getMarketData", () => {
       expiry: "20270115",
     });
     expect(yahooClient.quote).not.toHaveBeenCalled();
-    expect(md.source).toBe("ibkr");
+    expect(md.source).toBe("unavailable");
     expect(md.delayed).toBe(false);
   });
 
-  it("returns ibkr source when Yahoo also has no price (no fabricated values)", async () => {
+  it("returns 'unavailable' when IBKR is empty and Yahoo also has no price (no fabricated values)", async () => {
     const client = mkClient(async () => ({}));
     vi.mocked(yahooClient.quote).mockResolvedValue({
       symbol: "AAPL",
       regularMarketPrice: null,
     } as never);
     const md = await getMarketData(client, { symbol: "AAPL", secType: "STK" });
-    // Yahoo was tried but had no price → don't fabricate; mark as ibkr (empty).
-    expect(md.source).toBe("ibkr");
+    expect(md.source).toBe("unavailable");
     expect(md.delayed).toBe(false);
     expect(md.bid).toBeUndefined();
     expect(md.ask).toBeUndefined();
     expect(md.last).toBeUndefined();
+  });
+
+  it("falls back to Yahoo when IBKR throws subscription error on stock", async () => {
+    const client = mkClient(async () => {
+      throw new Error("Market data not subscribed");
+    });
+    vi.mocked(yahooClient.quote).mockResolvedValue({
+      symbol: "LUNR",
+      regularMarketPrice: 24.5,
+    } as never);
+    const md = await getMarketData(client, { symbol: "LUNR", secType: "STK" });
+    expect(md.source).toBe("yahoo-delayed");
+    expect(md.last).toBe(24.5);
+  });
+
+  it("maps VIX to ^VIX on Yahoo when IBKR has no subscription", async () => {
+    const client = mkClient(async () => {
+      throw new Error("No subscription");
+    });
+    vi.mocked(yahooClient.quote).mockResolvedValue({
+      symbol: "^VIX",
+      regularMarketPrice: 18.42,
+    } as never);
+    const md = await getMarketData(client, { symbol: "VIX", secType: "IND" });
+    expect(yahooClient.quote).toHaveBeenCalledWith("^VIX");
+    expect(md.source).toBe("yahoo-delayed");
+    expect(md.last).toBe(18.42);
+  });
+
+  it("returns source 'unavailable' when both IBKR throws AND Yahoo returns null price", async () => {
+    const client = mkClient(async () => {
+      throw new Error("subscription");
+    });
+    vi.mocked(yahooClient.quote).mockResolvedValue({
+      symbol: "XSP",
+      regularMarketPrice: null,
+    } as never);
+    const md = await getMarketData(client, { symbol: "XSP", secType: "STK" });
+    expect(md.source).toBe("unavailable");
+    expect(md.error).toContain("subscription");
+  });
+
+  it("does NOT throw for option contract with no data — returns 'unavailable'", async () => {
+    const client = mkClient(async () => {
+      throw new Error("subscription");
+    });
+    const md = await getMarketData(client, {
+      symbol: "NFLX",
+      secType: "OPT",
+      right: "C",
+      strike: 100,
+      expiry: "2026-06-05",
+    });
+    expect(md.source).toBe("unavailable");
+    expect(yahooClient.quote).not.toHaveBeenCalled();
   });
 });

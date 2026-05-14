@@ -124,7 +124,7 @@ export function buildIbkrTools(config: Config): ToolDef[] {
     {
       name: "get_market_data",
       description:
-        "Snapshot market data for a contract (bid/ask/last/volume; option Greeks for OPT contracts).",
+        "Snapshot market data. Returns bid/ask/last + Greeks (for options). Field 'source' indicates origin: 'ibkr' (live broker), 'yahoo-delayed' (fallback for stocks/indices when IBKR has no subscription), 'unavailable' (no data from either source). Never throws.",
       inputSchema: toMcpInputSchema(MarketDataInput),
       handler: async (raw) => {
         const input = MarketDataInput.parse(raw);
