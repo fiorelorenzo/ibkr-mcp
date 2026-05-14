@@ -5,6 +5,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "./config.js";
 import { ANALYTICS_TOOL_DEFS } from "./tools/analytics.tools.js";
+import { MARKET_CONTEXT_TOOL_DEFS } from "./tools/market-context.tools.js";
 import type { ToolDef } from "./tools/zod-helpers.js";
 
 export function createServer(config: Config): Server {
@@ -13,7 +14,10 @@ export function createServer(config: Config): Server {
     { capabilities: { tools: {} } },
   );
 
-  const tools: ToolDef[] = [...ANALYTICS_TOOL_DEFS];
+  const tools: ToolDef[] = [
+    ...ANALYTICS_TOOL_DEFS,
+    ...MARKET_CONTEXT_TOOL_DEFS,
+  ];
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: tools.map(({ name, description, inputSchema }) => ({
