@@ -51,6 +51,10 @@ export interface MarketDataSnapshot {
   vega?: number;
   iv?: number;
   undPrice?: number;
+  /** Where the bid/ask/last came from. `"ibkr"` is the default broker feed; `"yahoo-delayed"` is the post-market fallback for stocks. */
+  source?: "ibkr" | "yahoo-delayed";
+  /** True when the snapshot is from a delayed source (e.g. Yahoo when IBKR is closed). */
+  delayed?: boolean;
 }
 
 export interface HistoricalBar {

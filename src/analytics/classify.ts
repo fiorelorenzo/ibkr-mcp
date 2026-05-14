@@ -33,8 +33,32 @@ export interface StrategyGroup {
 }
 
 const MS_PER_DAY = 86_400_000;
+
+/**
+ * Parse an option expiry into a Date. Accepts:
+ *   - ISO `YYYY-MM-DD` (canonical)
+ *   - Compact `YYYYMMDD` (as returned by @stoqey/ib for option contracts)
+ *   - Any other string that the native Date parser understands
+ * If parsing fails the returned Date is Invalid (caller must guard with isNaN).
+ */
+function parseExpiry(expiry: string): Date {
+  const trimmed = expiry.trim();
+  if (/^\d{8}$/.test(trimmed)) {
+    const y = trimmed.slice(0, 4);
+    const m = trimmed.slice(4, 6);
+    const d = trimmed.slice(6, 8);
+    return new Date(`${y}-${m}-${d}T00:00:00Z`);
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return new Date(trimmed.length === 10 ? `${trimmed}T00:00:00Z` : trimmed);
+  }
+  return new Date(trimmed);
+}
+
 function dteFromExpiry(expiry: string, now = new Date()): number {
-  return Math.round((new Date(expiry).getTime() - now.getTime()) / MS_PER_DAY);
+  const date = parseExpiry(expiry);
+  if (isNaN(date.getTime())) return NaN;
+  return Math.round((date.getTime() - now.getTime()) / MS_PER_DAY);
 }
 
 export function classifyPositionsByStrategy(

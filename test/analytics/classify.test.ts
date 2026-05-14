@@ -65,4 +65,21 @@ describe("classifyPositionsByStrategy", () => {
     );
     expect(out.find((g) => g.strategy === "iron-condor")).toBeDefined();
   });
+  it("identifies a PMCC pair when expiries are in compact YYYYMMDD format", () => {
+    // Real bug: @stoqey/ib exposes expiries as compact YYYYMMDD; new Date('20270617')
+    // is Invalid Date, so dteFromExpiry returns NaN and every rule falls through to 'unknown'.
+    const out = classifyPositionsByStrategy(
+      [
+        opt("NFLX", "C", 72, "20270617", 1),
+        opt("NFLX", "C", 100, "20260605", -1),
+      ],
+      NOW,
+    );
+    expect(out.find((g) => g.strategy === "pmcc")).toBeDefined();
+    expect(out.find((g) => g.strategy === "unknown")).toBeUndefined();
+  });
+  it("identifies a standalone LEAPS with compact YYYYMMDD expiry", () => {
+    const out = classifyPositionsByStrategy([opt("AAPL", "C", 120, "20270618", 1)], NOW);
+    expect(out.find((g) => g.strategy === "leaps")).toBeDefined();
+  });
 });

@@ -105,7 +105,8 @@ describe("getPositions", () => {
     expect(opt.symbol).toBe("AAPL");
     expect(opt.right).toBe("C");
     expect(opt.strike).toBe(150);
-    expect(opt.expiry).toBe("20270115");
+    // Compact YYYYMMDD must be normalized to ISO YYYY-MM-DD.
+    expect(opt.expiry).toBe("2027-01-15");
     expect(opt.quantity).toBe(1);
     expect(opt.greeks).toEqual({
       delta: 0.85,
@@ -119,5 +120,47 @@ describe("getPositions", () => {
   it("returns empty array when there are no positions", async () => {
     const client = mkClient({ reqPositions: async () => [] });
     expect(await getPositions(client)).toEqual([]);
+  });
+
+  it("normalizes compact YYYYMMDD expiry to ISO YYYY-MM-DD", async () => {
+    const client = mkClient({
+      reqPositions: async () => [
+        {
+          symbol: "NFLX",
+          secType: "OPT",
+          right: "C",
+          strike: 72,
+          expiry: "20270617",
+          position: 1,
+          avgCost: 5000,
+          marketPrice: 55,
+          unrealizedPNL: 500,
+        },
+      ],
+    });
+    const pos = await getPositions(client);
+    if (pos[0].secType !== "OPT") throw new Error("expected OPT");
+    expect(pos[0].expiry).toBe("2027-06-17");
+  });
+
+  it("falls back to lastTradeDateOrContractMonth and normalizes it", async () => {
+    const client = mkClient({
+      reqPositions: async () => [
+        {
+          symbol: "AAPL",
+          secType: "OPT",
+          right: "C",
+          strike: 150,
+          lastTradeDateOrContractMonth: "20270115",
+          position: 1,
+          avgCost: 4500,
+          marketPrice: 50,
+          unrealizedPNL: 500,
+        },
+      ],
+    });
+    const pos = await getPositions(client);
+    if (pos[0].secType !== "OPT") throw new Error("expected OPT");
+    expect(pos[0].expiry).toBe("2027-01-15");
   });
 });

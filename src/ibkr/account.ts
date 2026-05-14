@@ -13,6 +13,18 @@ export async function getAccountSummary(client: BrokerClient): Promise<AccountSu
   };
 }
 
+/**
+ * Normalize an option expiry to ISO `YYYY-MM-DD`. @stoqey/ib returns the
+ * compact `YYYYMMDD` form for option contracts; downstream analytics
+ * (`classify_positions_by_strategy`) expect the ISO form, so we normalize here.
+ */
+function normalizeExpiry(raw: unknown): string {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  return s;
+}
+
 function asGreeks(g: unknown): OptionGreeks | undefined {
   if (!g || typeof g !== "object") return undefined;
   const r = g as Record<string, unknown>;
@@ -38,7 +50,7 @@ export async function getPositions(client: BrokerClient): Promise<Position[]> {
         secType: "OPT",
         right: r.right as "C" | "P",
         strike: Number(r.strike),
-        expiry: String(r.expiry ?? r.lastTradeDateOrContractMonth ?? ""),
+        expiry: normalizeExpiry(r.expiry ?? r.lastTradeDateOrContractMonth),
         quantity: Number(r.position),
         avgCost: Number(r.avgCost),
         marketPrice: Number(r.marketPrice ?? 0),
