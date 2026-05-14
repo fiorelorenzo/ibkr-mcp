@@ -1,7 +1,6 @@
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const yf = yahooFinance as any;
+const yf = new YahooFinance();
 
 export const yahooClient = {
   quote: (symbol: string) => yf.quote(symbol),
