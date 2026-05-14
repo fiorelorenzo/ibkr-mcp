@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4 — 2026-05-14
+
+### Fixed
+- Broker client singleton now self-heals: `getBrokerClient` performs a liveness check (`isAlive`) and reconnects transparently if the socket has gone stale (TWS auto-logoff, transient timeout, server-side disconnect).
+- Tool handlers automatically retry once on dead-socket errors after reconnecting. Previously a single bad connection caused all subsequent calls to time out indefinitely.
+- `clientId` auto-rotation: if IBKR rejects the configured clientId (e.g. previous session left it allocated), the server retries with `clientId+1`, up to 3 attempts.
+
 ## 0.1.3 — 2026-05-14
 
 ### Fixed

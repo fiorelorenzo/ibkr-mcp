@@ -11,6 +11,7 @@ function mkClient(overrides: Partial<BrokerClient>): BrokerClient {
   return {
     connect: async () => undefined,
     disconnect: async () => undefined,
+    isAlive: async () => true,
     reqAccountSummary: async () => ({}),
     reqPositions: async () => [],
     reqMktData: async () => ({}),

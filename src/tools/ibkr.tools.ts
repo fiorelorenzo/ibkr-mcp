@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Config } from "../config.js";
-import { getBrokerClient } from "../ibkr/connection.js";
+import { getBrokerClient, withBrokerRetry } from "../ibkr/connection.js";
 import { getAccountSummary, getPositions } from "../ibkr/account.js";
 import { getMarketData } from "../ibkr/market-data.js";
 import { getOptionChain } from "../ibkr/chain.js";
@@ -80,20 +80,14 @@ export function buildIbkrTools(config: Config): ToolDef[] {
       description:
         "Account summary (NetLiq, buying power, margin, excess liquidity) from IBKR.",
       inputSchema: toMcpInputSchema(NoInput),
-      handler: async () => {
-        const client = await getBrokerClient(config);
-        return getAccountSummary(client);
-      },
+      handler: async () => withBrokerRetry(config, (c) => getAccountSummary(c)),
     },
     {
       name: "get_positions",
       description:
         "All positions (stock and option) with quantity, avg cost, market price, P&L, and option Greeks when available.",
       inputSchema: toMcpInputSchema(NoInput),
-      handler: async () => {
-        const client = await getBrokerClient(config);
-        return getPositions(client);
-      },
+      handler: async () => withBrokerRetry(config, (c) => getPositions(c)),
     },
     {
       name: "get_pnl_per_position",
@@ -102,8 +96,7 @@ export function buildIbkrTools(config: Config): ToolDef[] {
       inputSchema: toMcpInputSchema(PnlPerPositionInput),
       handler: async (raw) => {
         const input = PnlPerPositionInput.parse(raw);
-        const client = await getBrokerClient(config);
-        const positions = await getPositions(client);
+        const positions = await withBrokerRetry(config, (c) => getPositions(c));
         const rows = positions.map((p) => ({
           symbol: p.symbol,
           secType: p.secType,
@@ -128,10 +121,11 @@ export function buildIbkrTools(config: Config): ToolDef[] {
       inputSchema: toMcpInputSchema(MarketDataInput),
       handler: async (raw) => {
         const input = MarketDataInput.parse(raw);
-        const client = await getBrokerClient(config);
-        return getMarketData(client, input.contract, {
-          genericTicks: input.genericTicks,
-        });
+        return withBrokerRetry(config, (c) =>
+          getMarketData(c, input.contract, {
+            genericTicks: input.genericTicks,
+          }),
+        );
       },
     },
     {
@@ -141,10 +135,11 @@ export function buildIbkrTools(config: Config): ToolDef[] {
       inputSchema: toMcpInputSchema(OptionChainInput),
       handler: async (raw) => {
         const input = OptionChainInput.parse(raw);
-        const client = await getBrokerClient(config);
-        return getOptionChain(client, input.symbol, input.expiry, {
-          concurrency: input.concurrency,
-        });
+        return withBrokerRetry(config, (c) =>
+          getOptionChain(c, input.symbol, input.expiry, {
+            concurrency: input.concurrency,
+          }),
+        );
       },
     },
     {
@@ -153,24 +148,22 @@ export function buildIbkrTools(config: Config): ToolDef[] {
       inputSchema: toMcpInputSchema(HistoricalBarsInput),
       handler: async (raw) => {
         const input = HistoricalBarsInput.parse(raw);
-        const client = await getBrokerClient(config);
-        return getHistoricalBars(client, input.symbol, {
-          duration: input.duration,
-          barSize: input.barSize,
-          whatToShow: input.whatToShow,
-          useRTH: input.useRTH,
-          endDateTime: input.endDateTime,
-        });
+        return withBrokerRetry(config, (c) =>
+          getHistoricalBars(c, input.symbol, {
+            duration: input.duration,
+            barSize: input.barSize,
+            whatToShow: input.whatToShow,
+            useRTH: input.useRTH,
+            endDateTime: input.endDateTime,
+          }),
+        );
       },
     },
     {
       name: "get_live_orders",
       description: "All currently open/working orders on the account.",
       inputSchema: toMcpInputSchema(NoInput),
-      handler: async () => {
-        const client = await getBrokerClient(config);
-        return getLiveOrders(client);
-      },
+      handler: async () => withBrokerRetry(config, (c) => getLiveOrders(c)),
     },
     {
       name: "get_order_status",
@@ -178,8 +171,7 @@ export function buildIbkrTools(config: Config): ToolDef[] {
       inputSchema: toMcpInputSchema(OrderIdInput),
       handler: async (raw) => {
         const { orderId } = OrderIdInput.parse(raw);
-        const client = await getBrokerClient(config);
-        return getOrderStatus(client, orderId);
+        return withBrokerRetry(config, (c) => getOrderStatus(c, orderId));
       },
     },
     {

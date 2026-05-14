@@ -164,6 +164,64 @@ export async function createSocketClient(config: Config): Promise<BrokerClient> 
   const { buildHistoryWrappers } = await import("./socket-wrappers/history.js");
   const { buildOrderWrappers } = await import("./socket-wrappers/orders.js");
 
+  const isAlive = async (): Promise<boolean> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const connected = (api as any).isConnected;
+    if (connected === false) return false;
+    // Cheap roundtrip: reqCurrentTime emits a `currentTime` event. If the
+    // socket is half-open the request will never resolve — bound it with
+    // a short timeout.
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).off?.("currentTime", onTime);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).off?.(EventName.error, onErr);
+          reject(new Error("liveness probe timed out"));
+        }, 2000);
+        const onTime = (): void => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).off?.(EventName.error, onErr);
+          resolve();
+        };
+        const onErr = (err: unknown): void => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).off?.("currentTime", onTime);
+          reject(err instanceof Error ? err : new Error(String(err)));
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (api as any).once?.("currentTime", onTime);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (api as any).once?.(EventName.error, onErr);
+        try {
+          api.reqCurrentTime();
+        } catch (e) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).off?.("currentTime", onTime);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (api as any).off?.(EventName.error, onErr);
+          reject(e instanceof Error ? e : new Error(String(e)));
+        }
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return {
     connect: async () => {
       await ensureConnected();
@@ -172,6 +230,7 @@ export async function createSocketClient(config: Config): Promise<BrokerClient> 
       api.disconnect();
       connectPromise = null;
     },
+    isAlive,
     ...buildAccountWrappers(handle),
     ...buildMarketDataWrappers(handle),
     ...buildChainWrappers(handle),
