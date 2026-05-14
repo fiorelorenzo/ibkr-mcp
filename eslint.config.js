@@ -12,6 +12,20 @@ export default [
     languageOptions: {
       parser: tsParser,
       parserOptions: { ecmaVersion: 2022, sourceType: "module" },
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        Buffer: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        setImmediate: "readonly",
+        clearImmediate: "readonly",
+        fetch: "readonly",
+        Response: "readonly",
+        NodeJS: "readonly",
+      },
     },
     plugins: { "@typescript-eslint": tseslint },
     rules: {
