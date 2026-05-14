@@ -1,12 +1,7 @@
-import type { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 
 export function toMcpInputSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-  // zod v4 typings vs zod-to-json-schema's zod v3 generic — runtime is compatible.
-  return zodToJsonSchema(schema as never, { target: "openApi3" }) as Record<
-    string,
-    unknown
-  >;
+  return z.toJSONSchema(schema) as Record<string, unknown>;
 }
 
 export interface ToolDef {

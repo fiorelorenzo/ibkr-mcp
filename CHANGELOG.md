@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 — 2026-05-14
+
+### Fixed
+- `tools/list` now returns standards-compliant JSON Schema for every tool's `inputSchema`. Previously used `zod-to-json-schema` (designed for Zod v3) on Zod v4 schemas, producing schemas that Claude Code's MCP client rejected with "Invalid input: expected object".
+
+### Internal
+- Switched to Zod v4's native `z.toJSONSchema()`.
+- Removed `zod-to-json-schema` dependency.
+
 ## 0.1.0 — 2026-05-13
 
 Initial public release.
