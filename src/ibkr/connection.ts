@@ -8,6 +8,17 @@ export interface BrokerClient {
    * or a roundtrip ping fails. Should never throw.
    */
   isAlive(): Promise<boolean>;
+  /** Synchronous socket-connected status (no roundtrip). Optional — present on socket backend. */
+  isConnected?(): boolean;
+  /** Roundtrip latency probe via `reqCurrentTime`. Returns ms. Throws on timeout. */
+  ping?(timeoutMs?: number): Promise<number>;
+  /** Returns broker errors recorded in the last `sinceMs` ms. */
+  getRecentErrors?(sinceMs: number): Array<{
+    timestamp: number;
+    message: string;
+    code?: number;
+    reqId?: number;
+  }>;
   // primitives — implemented per backend
   reqAccountSummary(): Promise<unknown>;
   reqPositions(): Promise<unknown[]>;

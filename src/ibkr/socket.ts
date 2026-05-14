@@ -129,6 +129,64 @@ export async function createSocketClient(config: Config): Promise<BrokerClient> 
   let connectPromise: Promise<void> | null = null;
   let nextId = 1;
 
+  // Circular buffer of recent broker error/info notices for diagnostics.
+  // Keyed at construction so we capture everything from connect onwards.
+  interface RecordedError {
+    timestamp: number;
+    message: string;
+    code?: number;
+    reqId?: number;
+  }
+  const RECENT_ERROR_MAX = 32;
+  const recentErrors: RecordedError[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (api as any).on?.(EventName.error, (...args: unknown[]) => {
+    const err = args[0];
+    const message = err instanceof Error ? err.message : String(err ?? "");
+    const code = typeof args[1] === "number" ? (args[1] as number) : undefined;
+    const reqId = typeof args[2] === "number" ? (args[2] as number) : undefined;
+    recentErrors.push({ timestamp: Date.now(), message, code, reqId });
+    if (recentErrors.length > RECENT_ERROR_MAX) recentErrors.shift();
+  });
+
+  const getRecentErrors = (sinceMs: number): RecordedError[] => {
+    const cutoff = Date.now() - sinceMs;
+    return recentErrors.filter((e) => e.timestamp >= cutoff);
+  };
+
+  const ping = async (timeoutMs = 2000): Promise<number> => {
+    const start = Date.now();
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (api as any).off?.("currentTime", onTime);
+        reject(new Error(`ping timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      const onTime = (): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (api as any).once?.("currentTime", onTime);
+      try {
+        api.reqCurrentTime();
+      } catch (e) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (api as any).off?.("currentTime", onTime);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    });
+    return Date.now() - start;
+  };
+
   const ensureConnected = (): Promise<void> => {
     if (!connectPromise) {
       connectPromise = new Promise<void>((resolve, reject) => {
@@ -231,6 +289,12 @@ export async function createSocketClient(config: Config): Promise<BrokerClient> 
       connectPromise = null;
     },
     isAlive,
+    isConnected: () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (api as any).isConnected !== false;
+    },
+    ping,
+    getRecentErrors,
     ...buildAccountWrappers(handle),
     ...buildMarketDataWrappers(handle),
     ...buildChainWrappers(handle),

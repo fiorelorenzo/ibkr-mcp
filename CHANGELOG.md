@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.7 — 2026-05-14
+
+### Fixed
+- **Option market data:** `get_market_data` on option contracts now requests the full generic-tick set needed for Greeks/IV (`100,101,104,105,106,165,221,225,236,258,293,294,318,375,411,456`). Previously the call omitted this list, so TWS never emitted `tickOptionComputation` events and `delta/gamma/theta/vega/iv` came back NaN even when bid/ask were populated. Root cause was in `src/ibkr/socket-wrappers/market-data.ts` — the wrapper passed an empty `genericTicks` string to `api.reqMktData(reqId, contract, "", false, false)`.
+- Streaming mode (`snapshot=false`) now exits early once a useful snapshot has been collected (bid+ask+delta for options; bid+ask for stocks) with a 200ms dwell for trailing ticks. Previously the call always blocked the full timeout.
+- Bumped per-request timeout to 8s for options (was 5s) — model Greeks events lag bid/ask by 1-2s on IBKR.
+- Informational notices (codes 2104/2106/2107/2108/2158 — market-data farm status) are no longer treated as fatal errors for the in-flight request.
+
+### Added
+- New tool **`diagnose_connection`** (tool count: 30): returns socket status, ping latency, a SPY stock+option market-data probe, and recent broker errors (last 60s). Use it when `get_market_data` returns empty results to disambiguate "no subscription" vs "wrong code path".
+- Socket client now exposes `isConnected()`, `ping(timeoutMs)`, and `getRecentErrors(sinceMs)` on the `BrokerClient` interface.
+
 ## 0.1.6 — 2026-05-14
 
 ### Added

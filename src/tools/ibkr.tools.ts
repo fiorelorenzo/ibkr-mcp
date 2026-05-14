@@ -3,6 +3,7 @@ import type { Config } from "../config.js";
 import { getBrokerClient, withBrokerRetry } from "../ibkr/connection.js";
 import { getAccountSummary, getPositions } from "../ibkr/account.js";
 import { getMarketData } from "../ibkr/market-data.js";
+import { diagnoseConnection } from "../ibkr/diagnose.js";
 import { getOptionChain } from "../ibkr/chain.js";
 import { getHistoricalBars } from "../ibkr/history.js";
 import {
@@ -201,6 +202,24 @@ export function buildIbkrTools(config: Config): ToolDef[] {
         const { queryId } = FlexQueryIdOnly.parse(raw);
         forgetFlexQuery(queryId);
         return { ok: true };
+      },
+    },
+    {
+      name: "diagnose_connection",
+      description:
+        "Diagnose the IBKR socket: connected status, ping latency, SPY stock+option market-data probe, and recent broker errors. Use when get_market_data returns empty results to disambiguate 'no subscription' vs 'wrong code path'. Never throws.",
+      inputSchema: toMcpInputSchema(NoInput),
+      handler: async () => {
+        try {
+          return await withBrokerRetry(config, (c) => diagnoseConnection(c));
+        } catch (err) {
+          return {
+            connected: false,
+            stockTest: { symbol: "SPY", ok: false, reason: err instanceof Error ? err.message : String(err) },
+            optionTest: { symbol: "SPY-option", ok: false, reason: "skipped — broker unavailable" },
+            recentErrors: [],
+          };
+        }
       },
     },
     {

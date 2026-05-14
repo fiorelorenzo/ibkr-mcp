@@ -27,18 +27,23 @@ describe("tool registration", () => {
     expect(MARKET_CONTEXT_TOOL_DEFS).toHaveLength(7);
   });
 
-  it("registers 13 IBKR tools", () => {
+  it("registers 14 IBKR tools", () => {
     const tools = buildIbkrTools(makeConfig());
-    expect(tools).toHaveLength(13);
+    expect(tools).toHaveLength(14);
   });
 
-  it("registers 29 tools in total", () => {
+  it("includes the diagnose_connection tool", () => {
+    const tools = buildIbkrTools(makeConfig());
+    expect(tools.find((t) => t.name === "diagnose_connection")).toBeDefined();
+  });
+
+  it("registers 30 tools in total", () => {
     const all = [
       ...ANALYTICS_TOOL_DEFS,
       ...MARKET_CONTEXT_TOOL_DEFS,
       ...buildIbkrTools(makeConfig()),
     ];
-    expect(all).toHaveLength(29);
+    expect(all).toHaveLength(30);
     // No duplicate names
     const names = all.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length);
