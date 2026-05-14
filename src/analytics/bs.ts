@@ -49,3 +49,44 @@ export function bsPrice(input: BsInput): number {
   }
   return K * Math.exp(-r * T) * normCdf(-d2) - S * Math.exp(-q * T) * normCdf(-d1);
 }
+
+export interface Greeks {
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  rho: number;
+}
+
+export function bsGreeks(input: BsInput): Greeks {
+  const { S, K, T, r, sigma, right } = input;
+  const q = input.q ?? 0;
+  if (T <= 0 || sigma <= 0) return { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0 };
+  const { d1, d2 } = bsD1D2(input);
+  const pdfD1 = normPdf(d1);
+  const sqrtT = Math.sqrt(T);
+  const expQT = Math.exp(-q * T);
+  const expRT = Math.exp(-r * T);
+
+  let delta: number, theta: number, rho: number;
+  if (right === "C") {
+    delta = expQT * normCdf(d1);
+    rho = (K * T * expRT * normCdf(d2)) / 100;
+    theta =
+      ((-S * pdfD1 * sigma * expQT) / (2 * sqrtT) -
+        r * K * expRT * normCdf(d2) +
+        q * S * expQT * normCdf(d1)) /
+      365;
+  } else {
+    delta = -expQT * normCdf(-d1);
+    rho = (-K * T * expRT * normCdf(-d2)) / 100;
+    theta =
+      ((-S * pdfD1 * sigma * expQT) / (2 * sqrtT) +
+        r * K * expRT * normCdf(-d2) -
+        q * S * expQT * normCdf(-d1)) /
+      365;
+  }
+  const gamma = (expQT * pdfD1) / (S * sigma * sqrtT);
+  const vega = (S * expQT * pdfD1 * sqrtT) / 100;
+  return { delta, gamma, theta, vega, rho };
+}
