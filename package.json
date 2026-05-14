@@ -3,6 +3,14 @@
   "version": "0.1.1",
   "description": "MCP server for Interactive Brokers — account, options chains, analytics (BS/Greeks/IV/PMCC), market context.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fiorelorenzo/ibkr-mcp.git"
+  },
+  "homepage": "https://github.com/fiorelorenzo/ibkr-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/fiorelorenzo/ibkr-mcp/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
