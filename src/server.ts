@@ -6,6 +6,7 @@ import {
 import type { Config } from "./config.js";
 import { ANALYTICS_TOOL_DEFS } from "./tools/analytics.tools.js";
 import { MARKET_CONTEXT_TOOL_DEFS } from "./tools/market-context.tools.js";
+import { buildIbkrTools } from "./tools/ibkr.tools.js";
 import type { ToolDef } from "./tools/zod-helpers.js";
 
 export function createServer(config: Config): Server {
@@ -17,6 +18,7 @@ export function createServer(config: Config): Server {
   const tools: ToolDef[] = [
     ...ANALYTICS_TOOL_DEFS,
     ...MARKET_CONTEXT_TOOL_DEFS,
+    ...buildIbkrTools(config),
   ];
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -36,6 +38,5 @@ export function createServer(config: Config): Server {
     };
   });
 
-  void config;
   return server;
 }
