@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.5 — 2026-05-14
+
+### Changed
+- **Removed hardcoded index symbol map.** The previous `INDEX_SYMBOL_MAP` (VIX → ^VIX, SPX → ^GSPC, ...) was static and didn't help for instruments like XSP. Replaced with a generic Yahoo-resolution cascade: direct quote → `^SYMBOL` for indices → Yahoo Search best match.
+- `get_market_data` now includes `resolvedSymbol`, `resolutionMethod`, `longName`, and `isExactSymbol` in the response when the Yahoo fallback is used. Callers can detect when a proxy was substituted and surface that to the user (e.g. `(proxy: ^GSPC, via Yahoo)`).
+
+### Added
+- New tool `resolve_symbol`: generic ticker resolution against Yahoo Finance. Useful for symbols IBKR can't quote (no subscription) or that Yahoo doesn't list under the literal name (e.g. XSP → SPY via search). Best-match quality depends on Yahoo's search index.
+
+### Fixed
+- XSP, SPX, NDX and similar derivative/index symbols now resolve to a quoted proxy (^GSPC, ^NDX, SPY, ...) automatically, with the proxy symbol surfaced in the response.
+
 ## 0.1.4 — 2026-05-14
 
 ### Fixed

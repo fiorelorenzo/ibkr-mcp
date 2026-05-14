@@ -23,8 +23,8 @@ describe("tool registration", () => {
     expect(ANALYTICS_TOOL_DEFS).toHaveLength(9);
   });
 
-  it("registers 6 market-context tools", () => {
-    expect(MARKET_CONTEXT_TOOL_DEFS).toHaveLength(6);
+  it("registers 7 market-context tools", () => {
+    expect(MARKET_CONTEXT_TOOL_DEFS).toHaveLength(7);
   });
 
   it("registers 13 IBKR tools", () => {
@@ -32,16 +32,27 @@ describe("tool registration", () => {
     expect(tools).toHaveLength(13);
   });
 
-  it("registers 28 tools in total", () => {
+  it("registers 29 tools in total", () => {
     const all = [
       ...ANALYTICS_TOOL_DEFS,
       ...MARKET_CONTEXT_TOOL_DEFS,
       ...buildIbkrTools(makeConfig()),
     ];
-    expect(all).toHaveLength(28);
+    expect(all).toHaveLength(29);
     // No duplicate names
     const names = all.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("exposes the resolve_symbol tool and it is callable", async () => {
+    const tool = MARKET_CONTEXT_TOOL_DEFS.find((t) => t.name === "resolve_symbol");
+    expect(tool).toBeDefined();
+    expect(tool!.description).toMatch(/Yahoo/i);
+    // Calling with a bogus symbol should not throw and should return a structured result.
+    const result = (await tool!.handler({ symbol: "DEFINITELY_NOT_A_TICKER_XYZ" })) as {
+      resolved: boolean;
+    };
+    expect(typeof result.resolved).toBe("boolean");
   });
 
   it("bs_price handler returns a price near 2.49 for an ATM call (30d, 20% IV)", async () => {

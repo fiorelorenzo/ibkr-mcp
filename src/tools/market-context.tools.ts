@@ -6,7 +6,10 @@ import {
 } from "../market-context/dividends.js";
 import { getFundamentals, get52wContext } from "../market-context/fundamentals.js";
 import { screenUniverse } from "../market-context/screen.js";
+import { resolveYahooQuote } from "../market-context/yahoo-resolve.js";
 import { toMcpInputSchema, type ToolDef } from "./zod-helpers.js";
+
+const ResolveSymbolInput = z.object({ symbol: z.string().min(1) });
 
 const SymbolInput = z.object({ symbol: z.string() });
 
@@ -72,6 +75,18 @@ export const MARKET_CONTEXT_TOOL_DEFS: ToolDef[] = [
     handler: async (raw) => {
       const { symbol } = SymbolInput.parse(raw);
       return get52wContext(symbol);
+    },
+  },
+  {
+    name: "resolve_symbol",
+    description:
+      "Resolve a ticker against Yahoo Finance using a generic cascade (direct quote → caret-prefix for indices → search best match). Returns the proxy symbol and price even when the requested symbol isn't directly listed (e.g. SPX → ^GSPC, XSP → SPY). Useful when IBKR has no subscription and you need an external reference.",
+    inputSchema: toMcpInputSchema(ResolveSymbolInput),
+    handler: async (raw) => {
+      const { symbol } = ResolveSymbolInput.parse(raw);
+      const r = await resolveYahooQuote(symbol);
+      if (!r) return { resolved: false };
+      return { resolved: true, ...r };
     },
   },
   {

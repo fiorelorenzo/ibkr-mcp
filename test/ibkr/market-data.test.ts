@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../src/market-context/yahoo.js", () => ({
   yahooClient: {
     quote: vi.fn(),
+    search: vi.fn(),
   },
 }));
 
@@ -27,6 +28,8 @@ function mkClient(reqMktData: BrokerClient["reqMktData"]): BrokerClient {
 
 beforeEach(() => {
   vi.mocked(yahooClient.quote).mockReset();
+  vi.mocked(yahooClient.search).mockReset();
+  vi.mocked(yahooClient.search).mockResolvedValue({ quotes: [] } as never);
 });
 
 describe("getMarketData", () => {
@@ -146,18 +149,23 @@ describe("getMarketData", () => {
     expect(md.last).toBe(24.5);
   });
 
-  it("maps VIX to ^VIX on Yahoo when IBKR has no subscription", async () => {
+  it("resolves VIX (IND) via the generic Yahoo cascade — caret-prefix → ^VIX", async () => {
     const client = mkClient(async () => {
       throw new Error("No subscription");
     });
-    vi.mocked(yahooClient.quote).mockResolvedValue({
-      symbol: "^VIX",
-      regularMarketPrice: 18.42,
-    } as never);
+    vi.mocked(yahooClient.quote).mockImplementation((async (s: string) => {
+      if (s === "VIX") return { symbol: "VIX", regularMarketPrice: null } as never;
+      if (s === "^VIX")
+        return { symbol: "^VIX", regularMarketPrice: 18.42 } as never;
+      return null as never;
+    }) as never);
     const md = await getMarketData(client, { symbol: "VIX", secType: "IND" });
     expect(yahooClient.quote).toHaveBeenCalledWith("^VIX");
     expect(md.source).toBe("yahoo-delayed");
     expect(md.last).toBe(18.42);
+    expect(md.resolvedSymbol).toBe("^VIX");
+    expect(md.resolutionMethod).toBe("caret-prefix");
+    expect(md.isExactSymbol).toBe(false);
   });
 
   it("returns source 'unavailable' when both IBKR throws AND Yahoo returns null price", async () => {

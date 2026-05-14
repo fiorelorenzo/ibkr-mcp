@@ -1,6 +1,6 @@
 import type { BrokerClient } from "./connection.js";
 import type { MarketDataSnapshot } from "./types.js";
-import { yahooClient } from "../market-context/yahoo.js";
+import { resolveYahooQuote } from "../market-context/yahoo-resolve.js";
 
 export interface MarketDataOptions {
   /** Comma-separated generic tick codes (see IB docs). */
@@ -12,21 +12,6 @@ function isFinitePositive(n: unknown): n is number {
 }
 
 /**
- * Yahoo symbol mapping for indices. IBKR exposes VIX/SPX/NDX/etc. as `IND`
- * contracts, but Yahoo Finance expects the `^` prefix.
- */
-const INDEX_SYMBOL_MAP: Record<string, string> = {
-  VIX: "^VIX",
-  VIX9D: "^VIX9D",
-  VIX3M: "^VIX3M",
-  VIX6M: "^VIX6M",
-  SPX: "^GSPC",
-  NDX: "^NDX",
-  DJX: "^DJI",
-  RUT: "^RUT",
-};
-
-/**
  * Request a market data snapshot for a contract. For options, the IB
  * "tickOptionComputation" callback supplies model Greeks + IV; the
  * underlying socket wrapper accumulates these and returns them on the
@@ -36,8 +21,11 @@ const INDEX_SYMBOL_MAP: Record<string, string> = {
  *  - When IBKR is **unusable** for a `STK` or `IND` contract — either the
  *    broker call threw (e.g. "Market data is not subscribed",
  *    "delayed market data is not available") OR every price field came
- *    back NaN — try a delayed Yahoo quote. Indices are mapped through
- *    `INDEX_SYMBOL_MAP` (e.g. `VIX` → `^VIX`).
+ *    back NaN — try the generic Yahoo-resolution cascade
+ *    (direct quote → `^SYMBOL` → Yahoo Search best match). The proxy
+ *    symbol that actually returned a price is surfaced on the response
+ *    as `resolvedSymbol` (e.g. `VIX → ^VIX`, `SPX → ^GSPC`,
+ *    `XSP → SPY`).
  *  - Option contracts are NOT backfilled (Yahoo's option chain is
  *    unreliable and Greeks would be missing).
  *  - If neither source has data, return a structured snapshot with
@@ -77,23 +65,19 @@ export async function getMarketData(
   const ibkrUnusable = ibkrError !== null || ibkrSnapshot === null || !hasPrice;
 
   if ((secType === "STK" || secType === "IND") && ibkrUnusable && symbol) {
-    const yahooSymbol = INDEX_SYMBOL_MAP[symbol] ?? symbol;
-    try {
-      const q = (await yahooClient.quote(yahooSymbol)) as {
-        regularMarketPrice?: number | null;
-      };
-      const px = q?.regularMarketPrice;
-      if (isFinitePositive(px)) {
-        const merged: MarketDataSnapshot = { ...(ibkrSnapshot ?? {}) };
-        merged.bid = px;
-        merged.ask = px;
-        merged.last = px;
-        merged.source = "yahoo-delayed";
-        merged.delayed = true;
-        return merged;
-      }
-    } catch {
-      // Swallow — fall through to the "unavailable" response below.
+    const resolved = await resolveYahooQuote(symbol);
+    if (resolved) {
+      const merged: MarketDataSnapshot = { ...(ibkrSnapshot ?? {}) };
+      merged.bid = resolved.price;
+      merged.ask = resolved.price;
+      merged.last = resolved.price;
+      merged.source = "yahoo-delayed";
+      merged.delayed = true;
+      merged.resolvedSymbol = resolved.resolvedSymbol;
+      merged.resolutionMethod = resolved.resolutionMethod;
+      if (resolved.longName) merged.longName = resolved.longName;
+      merged.isExactSymbol = resolved.isExact;
+      return merged;
     }
   }
 
