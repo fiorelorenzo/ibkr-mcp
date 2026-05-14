@@ -79,6 +79,123 @@ describe("resolveYahooQuote", () => {
     expect(r).toBeNull();
   });
 
+  it("resolves XSP via DuckDuckGo when Yahoo direct/caret/search all fail", async () => {
+    vi.mocked(yahooClient.quote).mockImplementation((async (s: string) => {
+      if (s === "XSP" || s === "^XSP")
+        return { symbol: s, regularMarketPrice: null } as never;
+      if (s === "SPY")
+        return {
+          symbol: "SPY",
+          regularMarketPrice: 580.12,
+          longName: "SPDR S&P 500 ETF Trust",
+        } as never;
+      return null as never;
+    }) as never);
+    vi.mocked(yahooClient.search).mockResolvedValue({ quotes: [] } as never);
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.startsWith("https://api.duckduckgo.com/")) {
+        return new Response(
+          JSON.stringify({
+            AbstractText:
+              "XSP is the Mini-SPX option, tracking the S&P 500. Often hedged with SPY.",
+            RelatedTopics: [],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    }) as never;
+    const r = await resolveYahooQuote("XSP");
+    expect(r).not.toBeNull();
+    expect(r!.resolutionMethod).toBe("web-search-duckduckgo");
+    expect(r!.resolvedSymbol).toBe("SPY");
+    expect(r!.price).toBe(580.12);
+  });
+
+  it("falls back to Wikipedia when DuckDuckGo has no useful tickers", async () => {
+    vi.mocked(yahooClient.quote).mockImplementation((async (s: string) => {
+      if (s === "OBSCURE" || s === "^OBSCURE")
+        return { symbol: s, regularMarketPrice: null } as never;
+      if (s === "TGT")
+        return {
+          symbol: "TGT",
+          regularMarketPrice: 145.0,
+          longName: "Target Corporation",
+        } as never;
+      return null as never;
+    }) as never);
+    vi.mocked(yahooClient.search).mockResolvedValue({ quotes: [] } as never);
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.startsWith("https://api.duckduckgo.com/")) {
+        return new Response(
+          JSON.stringify({ AbstractText: "", RelatedTopics: [] }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("wikipedia.org/api/rest_v1/page/summary/")) {
+        return new Response(
+          JSON.stringify({ extract: "OBSCURE trades under the ticker TGT." }),
+          { status: 200 },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    }) as never;
+    const r = await resolveYahooQuote("OBSCURE");
+    expect(r!.resolutionMethod).toBe("web-search-wikipedia");
+    expect(r!.resolvedSymbol).toBe("TGT");
+  });
+
+  it("uses caller-hint before any external lookups when provided", async () => {
+    vi.mocked(yahooClient.quote).mockImplementation((async (s: string) => {
+      if (s === "SPY")
+        return { symbol: "SPY", regularMarketPrice: 580.12 } as never;
+      return null as never;
+    }) as never);
+    const fetchSpy = vi.fn();
+    global.fetch = fetchSpy as never;
+    const r = await resolveYahooQuote("XSP", { hintSymbols: ["SPY"] });
+    expect(r!.resolutionMethod).toBe("caller-hint");
+    expect(r!.resolvedSymbol).toBe("SPY");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("respects timeout on web-search steps", async () => {
+    vi.mocked(yahooClient.quote).mockResolvedValue({
+      symbol: "X",
+      regularMarketPrice: null,
+    } as never);
+    vi.mocked(yahooClient.search).mockResolvedValue({ quotes: [] } as never);
+    global.fetch = vi.fn().mockImplementation(
+      () =>
+        new Promise(() => {
+          /* never resolves */
+        }),
+    ) as never;
+    const r = await resolveYahooQuote("X");
+    expect(r).toBeNull();
+  }, 20000);
+
+  it("skips common English denylist words during ticker extraction", async () => {
+    vi.mocked(yahooClient.quote).mockImplementation((async (s: string) => {
+      if (s === "X" || s === "^X")
+        return { symbol: s, regularMarketPrice: null } as never;
+      if (s === "AND" || s === "THE" || s === "FOR")
+        return { symbol: s, regularMarketPrice: 100 } as never;
+      return null as never;
+    }) as never);
+    vi.mocked(yahooClient.search).mockResolvedValue({ quotes: [] } as never);
+    global.fetch = vi.fn().mockImplementation(async () => {
+      return new Response(
+        JSON.stringify({
+          AbstractText: "AND THE FOR are common words. X stands FOR XYZ.",
+        }),
+        { status: 200 },
+      );
+    }) as never;
+    const r = await resolveYahooQuote("X");
+    expect(r).toBeNull();
+  });
+
   it("uses caret-prefix path for VIX → ^VIX", async () => {
     vi.mocked(yahooClient.quote).mockImplementation((async (s: string) => {
       if (s === "VIX") return { symbol: "VIX", regularMarketPrice: null } as never;

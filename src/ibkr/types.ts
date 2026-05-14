@@ -63,7 +63,13 @@ export interface MarketDataSnapshot {
   /** When `source === "yahoo-delayed"`: the symbol Yahoo actually quoted (may differ from the requested symbol for indices and proxies). */
   resolvedSymbol?: string;
   /** Method used by the Yahoo resolution cascade when `source === "yahoo-delayed"`. */
-  resolutionMethod?: "direct" | "caret-prefix" | "search-best-match";
+  resolutionMethod?:
+    | "caller-hint"
+    | "direct"
+    | "caret-prefix"
+    | "search-best-match"
+    | "web-search-duckduckgo"
+    | "web-search-wikipedia";
   /** Human-readable name from Yahoo, when available. */
   longName?: string;
   /** True when no proxy was used (resolved symbol equals requested symbol). */

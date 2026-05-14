@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.6 — 2026-05-14
+
+### Added
+- Symbol resolution cascade now includes **web-search fallback** when Yahoo direct/caret/search all fail:
+  1. DuckDuckGo Instant Answer API (free, no auth) — extracts ticker candidates from `AbstractText` and `RelatedTopics`, validates each via Yahoo.
+  2. Wikipedia REST API (free, no auth) — extracts tickers from the article extract, validates via Yahoo.
+- New `resolutionMethod` values: `"web-search-duckduckgo"` and `"web-search-wikipedia"`.
+- `resolve_symbol` tool now accepts an optional `hint` parameter so callers (skills) can fast-path a candidate proxy they discovered themselves (e.g. via Claude's own web search). Marked as `"caller-hint"` in the resolution method.
+
+### Changed
+- External HTTP calls are bounded by a 4s `AbortController` timeout (race-based, so hung sockets cannot block the pipeline). Candidate inspection capped at 5 tickers per source to avoid runaway lookups.
+- User-Agent set to identify the package on Wikipedia/DuckDuckGo (some endpoints reject the default Node UA).
+
 ## 0.1.5 — 2026-05-14
 
 ### Changed

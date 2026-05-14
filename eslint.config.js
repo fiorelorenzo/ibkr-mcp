@@ -24,6 +24,8 @@ export default [
         clearImmediate: "readonly",
         fetch: "readonly",
         Response: "readonly",
+        AbortController: "readonly",
+        global: "readonly",
         NodeJS: "readonly",
       },
     },

@@ -9,7 +9,16 @@ import { screenUniverse } from "../market-context/screen.js";
 import { resolveYahooQuote } from "../market-context/yahoo-resolve.js";
 import { toMcpInputSchema, type ToolDef } from "./zod-helpers.js";
 
-const ResolveSymbolInput = z.object({ symbol: z.string().min(1) });
+const ResolveSymbolInput = z.object({
+  symbol: z.string().min(1),
+  hint: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Optional candidate proxy symbol to try first (e.g. caller did its own web search).",
+    ),
+});
 
 const SymbolInput = z.object({ symbol: z.string() });
 
@@ -80,11 +89,14 @@ export const MARKET_CONTEXT_TOOL_DEFS: ToolDef[] = [
   {
     name: "resolve_symbol",
     description:
-      "Resolve a ticker against Yahoo Finance using a generic cascade (direct quote → caret-prefix for indices → search best match). Returns the proxy symbol and price even when the requested symbol isn't directly listed (e.g. SPX → ^GSPC, XSP → SPY). Useful when IBKR has no subscription and you need an external reference.",
+      "Resolve a ticker against Yahoo Finance using a generic cascade (caller hint → direct quote → caret-prefix for indices → search best match → DuckDuckGo web search → Wikipedia web search). Returns the proxy symbol and price even when the requested symbol isn't directly listed on Yahoo (e.g. SPX → ^GSPC, XSP → SPY). Accepts an optional `hint` candidate symbol that the caller already discovered.",
     inputSchema: toMcpInputSchema(ResolveSymbolInput),
     handler: async (raw) => {
-      const { symbol } = ResolveSymbolInput.parse(raw);
-      const r = await resolveYahooQuote(symbol);
+      const { symbol, hint } = ResolveSymbolInput.parse(raw);
+      const r = await resolveYahooQuote(
+        symbol,
+        hint ? { hintSymbols: [hint] } : undefined,
+      );
       if (!r) return { resolved: false };
       return { resolved: true, ...r };
     },
